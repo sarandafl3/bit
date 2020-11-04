@@ -20,6 +20,8 @@ import Ref from './ref';
 import { ContentTransformer, onPersist, onRead } from './repository-hooks';
 
 const OBJECTS_BACKUP_DIR = `${OBJECTS_DIR}.bak`;
+const ROLLBACK_DIR = 'rollback';
+const ROLLBACK_NEW_FILES = 'new-files.json';
 
 export default class Repository {
   // @ts-ignore AUTO-ADDED-AFTER-MIGRATION-PLEASE-FIX!
@@ -91,8 +93,12 @@ export default class Repository {
   }
 
   objectPath(ref: Ref): string {
+    return path.join(this.getPath(), this.hashPath(ref));
+  }
+
+  private hashPath(ref: Ref): string {
     const hash = ref.toString();
-    return path.join(this.getPath(), hash.slice(0, 2), hash.slice(2));
+    return path.join(hash.slice(0, 2), hash.slice(2));
   }
 
   async has(ref: Ref): Promise<boolean> {
@@ -264,6 +270,60 @@ export default class Repository {
     logger.debug(`making a backup of all objects from ${objectsDir} to ${backupDir}`);
     fs.emptyDirSync(backupDir);
     fs.copySync(objectsDir, backupDir);
+  }
+
+  getRollbackDir() {
+    return path.join(this.scopePath, ROLLBACK_DIR);
+  }
+
+  async backupForRollback(refs: Ref[]) {
+    const rollbackDir = this.getRollbackDir();
+    const objectsDir = this.getPath();
+    logger.debug(`making a backup for rollback purposes from ${objectsDir} to ${rollbackDir}`);
+    await this.deleteRollback();
+    const newlyAddedRefs: Ref[] = [];
+    await Promise.all(
+      refs.map(async (ref) => {
+        const srcPath = this.objectPath(ref);
+        const destPath = path.join(rollbackDir, this.hashPath(ref));
+        // await fs.ensureDir(path.dirname(destPath));
+        try {
+          await fs.copyFile(srcPath, destPath);
+        } catch (err) {
+          if (err.code !== 'ENOENT') {
+            throw err;
+          }
+          newlyAddedRefs.push(ref);
+        }
+      })
+    );
+    if (newlyAddedRefs.length) {
+      await fs.outputFile(path.join(rollbackDir, ROLLBACK_NEW_FILES), JSON.stringify(newlyAddedRefs));
+    }
+  }
+  async rollback() {
+    const rollbackDir = this.getRollbackDir();
+    let newlyAdded;
+    try {
+      newlyAdded = await fs.readJSON(path.join(rollbackDir, ROLLBACK_NEW_FILES));
+    } catch (err) {
+      if (err.code !== 'ENOENT') throw err;
+    }
+    console.log('rollback -> newlyAdded', newlyAdded);
+    if (newlyAdded.length) {
+      const refs = newlyAdded.forEach((hash) => new Ref(hash));
+      this.removeManyObjects(refs);
+    }
+    const matches = await glob(path.join('*', '*'), { cwd: rollbackDir });
+    console.log('rollback -> matches', matches);
+    throw new Error('Please continue implementing...');
+    // this.addMany();
+
+    await this.persist();
+  }
+  async deleteRollback() {
+    const rollbackDir = this.getRollbackDir();
+    await fs.emptyDir(rollbackDir);
   }
 
   add(object: BitObject | null | undefined): Repository {

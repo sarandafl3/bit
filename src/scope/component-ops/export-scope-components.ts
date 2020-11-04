@@ -318,6 +318,9 @@ async function mergeObjects(scope: Scope, objectList: ObjectList): Promise<BitId
   const components = bitObjectList.getComponents();
   const lanesObjects = bitObjectList.getLanes();
   const versions = bitObjectList.getVersions();
+  // these are the only two that their content can change within the same hash
+  const objectsForRollback = [...components, ...lanesObjects];
+  await scope.objects.backupForRollback(objectsForRollback.map((o) => o.hash()));
   logger.debugAndAddBreadCrumb(
     'export-scope-components.mergeObjects',
     `Going to merge ${components.length} components, ${lanesObjects.length} lanes`
