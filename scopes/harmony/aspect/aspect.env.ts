@@ -1,5 +1,5 @@
 import { BabelMain } from '@teambit/babel';
-import { CompilerAspect, CompilerMain } from '@teambit/compiler';
+import { CompilerMain } from '@teambit/compiler';
 import { Environment } from '@teambit/envs';
 import { merge } from 'lodash';
 import { TsConfigSourceFile } from 'typescript';
@@ -41,8 +41,8 @@ export class AspectEnv implements Environment {
     return this.babel.createCompiler({ babelTransformOptions: babelConfig });
   }
 
-  createTsCompiler(tsConfig: TsConfigSourceFile){
-    return this.reactEnv.getCompiler(this.getTsConfig(tsConfig))
+  createTsCompiler(tsConfig: TsConfigSourceFile) {
+    return this.reactEnv.getCompiler(this.getTsConfig(tsConfig));
   }
 
   getBuildPipe() {
@@ -54,7 +54,7 @@ export class AspectEnv implements Environment {
 
     const babelCompiler = this.babel.createCompiler({ babelTransformOptions: babelConfig });
 
-    const pipeWithoutCompiler = this.reactEnv.getBuildPipe().filter((task) => task.aspectId !== CompilerAspect.id);
+    const pipeWithoutCompiler = this.reactEnv.getNonCompilerTasks();
 
     return [
       this.compiler.createTask('BabelCompiler', babelCompiler), // for dists

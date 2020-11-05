@@ -12,6 +12,7 @@ import { TesterAspect } from './tester.aspect';
 import { TesterService } from './tester.service';
 import { TesterTask } from './tester.task';
 import { testerSchema } from './tester.graphql';
+import { BuilderAspect, BuilderMain } from '@teambit/builder';
 
 export type TesterExtensionConfig = {
   /**
@@ -39,7 +40,7 @@ export type TesterOptions = {
 
 export class TesterMain {
   static runtime = MainRuntime;
-  static dependencies = [CLIAspect, EnvsAspect, WorkspaceAspect, LoggerAspect, GraphqlAspect];
+  static dependencies = [CLIAspect, EnvsAspect, WorkspaceAspect, LoggerAspect, GraphqlAspect, BuilderAspect];
 
   constructor(
     /**
@@ -102,14 +103,22 @@ export class TesterMain {
   };
 
   static async provider(
-    [cli, envs, workspace, loggerAspect, graphql]: [CLIMain, EnvsMain, Workspace, LoggerMain, GraphqlMain],
+    [cli, envs, workspace, loggerAspect, graphql, builder]: [
+      CLIMain,
+      EnvsMain,
+      Workspace,
+      LoggerMain,
+      GraphqlMain,
+      BuilderMain
+    ],
     config: TesterExtensionConfig
   ) {
     const logger = loggerAspect.createLogger(TesterAspect.id);
     const testerService = new TesterService(workspace, config.testRegex, logger);
     envs.registerService(testerService);
-
-    const tester = new TesterMain(envs, workspace, testerService, new TesterTask(TesterAspect.id));
+    const testerTask = new TesterTask();
+    builder.registerEnvTasks([testerTask]);
+    const tester = new TesterMain(envs, workspace, testerService, testerTask);
 
     if (workspace && !workspace.consumer.isLegacy) {
       cli.unregister('test');

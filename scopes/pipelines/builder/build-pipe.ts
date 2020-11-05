@@ -5,7 +5,7 @@ import { Logger, LongProcessLogger } from '@teambit/logger';
 import Bluebird from 'bluebird';
 import prettyTime from 'pretty-time';
 import { ArtifactFactory, ArtifactList } from './artifact';
-import { BuildTask, BuildTaskHelper } from './build-task';
+import { Task, BuildTaskHelper } from './build-task';
 import { ComponentResult } from './types';
 import { TasksQueue } from './tasks-queue';
 import { EnvsBuildContext } from './builder.service';
@@ -15,7 +15,7 @@ export type TaskResults = {
   /**
    * task itself. useful for getting its id/description later on.
    */
-  task: BuildTask;
+  task: Task;
 
   /**
    * environment were the task was running
@@ -45,8 +45,8 @@ export type TaskResults = {
 };
 
 export class BuildPipe {
-  private failedTasks: BuildTask[] = [];
-  private failedDependencyTask: BuildTask | undefined;
+  private failedTasks: Task[] = [];
+  private failedDependencyTask: Task | undefined;
   private longProcessLogger: LongProcessLogger;
   constructor(
     /**
@@ -64,7 +64,9 @@ export class BuildPipe {
   async execute(): Promise<TaskResultsList> {
     await this.executePreBuild();
     this.longProcessLogger = this.logger.createLongProcessLogger('running tasks', this.tasksQueue.length);
-    const results = await Bluebird.mapSeries(this.tasksQueue, async ({ task, env }) => this.executeTask(task, env));
+    const results = await Bluebird.mapSeries(this.tasksQueue, async ({ taskWrapper: task, env }) =>
+      this.executeTask(task, env)
+    );
     this.longProcessLogger.end();
     const tasksResultsList = new TaskResultsList(this.tasksQueue, compact(results));
     await this.executePostBuild(tasksResultsList);
@@ -74,14 +76,14 @@ export class BuildPipe {
 
   private async executePreBuild() {
     this.logger.setStatusLine('executing pre-build for all tasks');
-    await Bluebird.mapSeries(this.tasksQueue, async ({ task, env }) => {
+    await Bluebird.mapSeries(this.tasksQueue, async ({ taskWrapper: task, env }) => {
       if (!task.preBuild) return;
       await task.preBuild(this.getBuildContext(env.id));
     });
     this.logger.consoleSuccess();
   }
 
-  private async executeTask(task: BuildTask, env: EnvDefinition): Promise<TaskResults | null> {
+  private async executeTask(task: Task, env: EnvDefinition, taskAspectId: string): Promise<TaskResults | null> {
     const taskId = BuildTaskHelper.serializeId(task);
     const taskName = `${taskId}${task.description ? ` (${task.description})` : ''}`;
     this.longProcessLogger.logProgress(`env "${env.id}", task "${taskName}"`);
@@ -103,7 +105,7 @@ export class BuildPipe {
       const duration = prettyTime(process.hrtime(startTask));
       this.logger.consoleSuccess(`env "${env.id}", task "${taskName}" has completed successfully in ${duration}`);
       const defs = buildTaskResult.artifacts || [];
-      artifacts = this.artifactFactory.generate(buildContext, defs, task);
+      artifacts = this.artifactFactory.generate(buildContext, defs, task, taskAspectId);
     }
 
     const taskResults: TaskResults = {
@@ -120,14 +122,14 @@ export class BuildPipe {
 
   private async executePostBuild(tasksResults: TaskResultsList) {
     this.logger.setStatusLine('executing post-build for all tasks');
-    await Bluebird.mapSeries(this.tasksQueue, async ({ task, env }) => {
+    await Bluebird.mapSeries(this.tasksQueue, async ({ taskWrapper: task, env }) => {
       if (!task.postBuild) return;
       await task.postBuild(this.getBuildContext(env.id), tasksResults);
     });
     this.logger.consoleSuccess();
   }
 
-  private updateFailedDependencyTask(task: BuildTask) {
+  private updateFailedDependencyTask(task: Task) {
     if (!this.failedDependencyTask && this.failedTasks.length && task.dependencies) {
       task.dependencies.forEach((dependency) => {
         const { aspectId, name } = BuildTaskHelper.deserializeId(dependency);

@@ -40,6 +40,8 @@ export class BuilderService implements EnvService<BuildServiceResults, BuilderDe
      */
     private taskSlot: TaskSlot,
 
+    private envTasksSlot: TaskSlot,
+
     /**
      * for now, it can be either "getBuildPipe" or "getDeployPipe".
      * a method with such name should be implemented on the env in order to run the pipe tasks.
@@ -107,6 +109,6 @@ export class BuilderService implements EnvService<BuildServiceResults, BuilderDe
 
   getDescriptor(env: EnvDefinition) {
     const tasksQueue = calculatePipelineOrder(this.taskSlot, [env], this.pipeNameOnEnv);
-    return { tasks: tasksQueue.map(({ task }) => BuildTaskHelper.serializeId(task)) };
+    return { tasks: tasksQueue.map(({ taskWrapper: task }) => BuildTaskHelper.serializeId(task)) };
   }
 }

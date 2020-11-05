@@ -1,8 +1,8 @@
-import { BuildTask, BuiltTaskResult, BuildContext, ComponentResult } from '@teambit/builder';
+import { Task, BuiltTaskResult, BuildContext, ComponentResult } from '@teambit/builder';
 import { Linter } from './linter';
 
-export class LintTask implements BuildTask {
-  constructor(readonly aspectId: string, readonly name = 'lint') {}
+export class LintTask implements Task {
+  constructor(readonly name = 'lint') {}
 
   async execute(context: BuildContext): Promise<BuiltTaskResult> {
     const linter: Linter = context.env.getLinter();

@@ -1,4 +1,4 @@
-import { BuildContext, BuiltTaskResult, BuildTask } from '@teambit/builder';
+import { BuildContext, BuiltTaskResult, Task } from '@teambit/builder';
 import { join } from 'path';
 import { Compiler, CompilerAspect } from '@teambit/compiler';
 import { ComponentMap } from '@teambit/component';
@@ -8,10 +8,9 @@ import { detectTestFiles } from './utils';
 /**
  * tester build task. Allows to test components during component build.
  */
-export class TesterTask implements BuildTask {
+export class TesterTask implements Task {
   readonly name = 'TestComponents';
   readonly dependencies = [CompilerAspect.id];
-  constructor(readonly aspectId: string) {}
 
   async execute(context: BuildContext): Promise<BuiltTaskResult> {
     const tester: Tester = context.env.getTester();

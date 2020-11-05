@@ -24,7 +24,7 @@ export interface BuildContext extends ExecutionContext {
   capsuleGraph: Network;
 }
 
-export interface BuildTask {
+export interface Task {
   /**
    * aspect id serialized of the creator of the task.
    * todo: automate this so then it won't be needed to pass manually.
@@ -94,9 +94,13 @@ export interface BuiltTaskResult {
   artifacts?: ArtifactDefinition[];
 }
 
-export class BuildTaskHelper {
-  static serializeId({ aspectId, name }: BuildTask): string {
-    return aspectId + TaskIdDelimiter + name;
+export class TaskWrapper {
+  constructor(public task: Task, public aspectId: string) {}
+  get id() {
+    return this.aspectId + TaskIdDelimiter + this.name;
+  }
+  get name() {
+    return this.task.name;
   }
   static deserializeId(id: string): { aspectId: string; name?: string } {
     const split = id.split(TaskIdDelimiter);

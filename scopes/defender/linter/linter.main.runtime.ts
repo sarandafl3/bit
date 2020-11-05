@@ -6,6 +6,7 @@ import { LinterAspect } from './linter.aspect';
 import { LinterService } from './linter.service';
 import { LintTask } from './lint.task';
 import { LintCmd } from './lint.cmd';
+import { BuilderMain } from '@teambit/builder';
 
 export type LinterConfig = {
   /**
@@ -20,7 +21,9 @@ export class LinterMain {
   constructor(
     private envs: EnvsMain,
 
-    private linterService: LinterService
+    private linterService: LinterService,
+
+    private builder: BuilderMain
   ) {}
 
   /**
@@ -37,7 +40,9 @@ export class LinterMain {
    * @param name name of the task.
    */
   createTask(name?: string): LintTask {
-    return new LintTask(LinterAspect.id, name);
+    const lintTask = new LintTask(name);
+    this.builder.registerEnvTasks([lintTask]);
+    return lintTask;
   }
 
   static dependencies = [EnvsAspect, CLIAspect, ComponentAspect, LoggerAspect];
@@ -47,12 +52,12 @@ export class LinterMain {
   };
 
   static async provider(
-    [envs, cli, component, loggerAspect]: [EnvsMain, CLIMain, ComponentMain, LoggerMain],
+    [envs, cli, component, loggerAspect, builder]: [EnvsMain, CLIMain, ComponentMain, LoggerMain, BuilderMain],
     config: LinterConfig
   ) {
     const logger = loggerAspect.createLogger(LinterAspect.id);
     const linterService = new LinterService(config);
-    const linterAspect = new LinterMain(envs, linterService);
+    const linterAspect = new LinterMain(envs, linterService, builder);
     envs.registerService(linterService);
     cli.register(new LintCmd(linterAspect, component.getHost(), logger));
 

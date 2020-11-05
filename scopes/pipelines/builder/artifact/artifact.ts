@@ -1,5 +1,5 @@
 import type { ArtifactFiles, ArtifactObject } from 'bit-bin/dist/consumer/component/sources/artifact-files';
-import type { BuildTask } from '../build-task';
+import type { Task } from '../build-task';
 import type { StorageResolver } from '../storage';
 import type { ArtifactDefinition } from './artifact-definition';
 
@@ -27,7 +27,9 @@ export class Artifact {
      * todo: change this to taskDescriptor that has only the metadata of the task, so it could be
      * saved into the model.
      */
-    readonly task: BuildTask,
+    readonly task: Task,
+
+    readonly taskAspectId: string,
 
     /**
      * timestamp of the artifact creation.
@@ -54,13 +56,6 @@ export class Artifact {
   }
 
   /**
-   * aspect id (string) that generated the artifact
-   */
-  get generatedBy(): string {
-    return this.def.generatedBy || this.task.aspectId;
-  }
-
-  /**
    * archive all artifact files into a tar.
    */
   tar() {}
@@ -69,10 +64,9 @@ export class Artifact {
     return {
       name: this.name,
       description: this.description,
-      generatedBy: this.generatedBy,
       storage: this.storageResolver.name,
       task: {
-        id: this.task.aspectId,
+        id: this.taskAspectId,
         name: this.task.name,
       },
       files: this.files,

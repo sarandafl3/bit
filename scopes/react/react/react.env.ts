@@ -1,5 +1,5 @@
 import { TsConfigSourceFile } from 'typescript';
-import { BuildTask } from '@teambit/builder';
+import { Task } from '@teambit/builder';
 import { merge } from 'lodash';
 import { Bundler, BundlerContext, DevServer, DevServerContext } from '@teambit/bundler';
 import { Compiler, CompilerMain, CompilerOptions } from '@teambit/compiler';
@@ -193,11 +193,15 @@ export class ReactEnv implements Environment {
     };
   }
 
+  getNonCompilerTasks(): Task[] {
+    return [this.tester.task];
+  }
+
   /**
    * returns the component build pipeline.
    */
-  getBuildPipe(tsconfig?: TsConfigSourceFile): BuildTask[] {
-    return [this.getCompilerTask(tsconfig), this.tester.task];
+  getBuildPipe(tsconfig?: TsConfigSourceFile): Task[] {
+    return [this.getCompilerTask(tsconfig), ...this.getNonCompilerTasks()];
   }
 
   private getCompilerTask(tsconfig?: TsConfigSourceFile) {

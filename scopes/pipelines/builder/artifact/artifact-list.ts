@@ -38,13 +38,13 @@ export class ArtifactList {
     return this.artifacts.map((artifact) => artifact.toObject());
   }
 
-  groupByTaskId() {
-    return this.artifacts.reduce((acc: { [key: string]: Artifact }, artifact) => {
-      const taskId = artifact.task.aspectId;
-      acc[taskId] = artifact;
-      return acc;
-    }, {});
-  }
+  // groupByTaskId() {
+  //   return this.artifacts.reduce((acc: { [key: string]: Artifact }, artifact) => {
+  //     const taskId = artifact.task.aspectId;
+  //     acc[taskId] = artifact;
+  //     return acc;
+  //   }, {});
+  // }
 
   /**
    * store all artifacts using the configured storage resolvers.

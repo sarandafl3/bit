@@ -1,6 +1,6 @@
 import { resolve, join } from 'path';
 import { ExecutionContext } from '@teambit/envs';
-import { BuildContext, BuiltTaskResult, BuildTask, TaskLocation } from '@teambit/builder';
+import { BuildContext, BuiltTaskResult, Task, TaskLocation } from '@teambit/builder';
 import { Bundler, BundlerContext, BundlerMain, Target } from '@teambit/bundler';
 import { Compiler } from '@teambit/compiler';
 import { ComponentMap } from '@teambit/component';
@@ -10,7 +10,7 @@ import { flatten } from 'lodash';
 import { PreviewDefinition } from './preview-definition';
 import { PreviewMain } from './preview.main.runtime';
 
-export class PreviewTask implements BuildTask {
+export class PreviewTask implements Task {
   constructor(
     /**
      * bundler extension.

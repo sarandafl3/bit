@@ -1,4 +1,4 @@
-import { BuildContext, BuiltTaskResult, BuildTask } from '@teambit/builder';
+import { BuildContext, BuiltTaskResult, Task } from '@teambit/builder';
 import { Compiler } from '@teambit/compiler';
 import { Capsule } from '@teambit/isolator';
 import { Logger } from '@teambit/logger';
@@ -9,7 +9,7 @@ import path from 'path';
 /**
  * prepare packages for publishing.
  */
-export class PreparePackagesTask implements BuildTask {
+export class PreparePackagesTask implements Task {
   readonly name = 'PreparePackages';
   readonly location = 'end';
   constructor(readonly aspectId: string, private logger: Logger) {}

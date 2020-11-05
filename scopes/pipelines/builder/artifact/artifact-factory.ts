@@ -8,7 +8,7 @@ import { ArtifactDefinition } from './artifact-definition';
 import { DefaultResolver, StorageResolver } from '../storage';
 import { ArtifactList } from './artifact-list';
 import { Artifact } from './artifact';
-import type { BuildContext, BuildTask } from '../build-task';
+import type { BuildContext, Task } from '../build-task';
 import { CapsuleNotFound } from '../exceptions';
 
 export const DEFAULT_CONTEXT = 'component';
@@ -49,7 +49,8 @@ export class ArtifactFactory {
     context: BuildContext,
     component: Component,
     def: ArtifactDefinition,
-    task: BuildTask
+    task: Task,
+    taskAspectId: string
   ): Artifact | undefined {
     const storageResolver = this.getStorageResolver(def);
     const rootDir = this.getArtifactContextPath(context, component, def);
@@ -57,7 +58,7 @@ export class ArtifactFactory {
     if (!paths || !paths.length) {
       return undefined;
     }
-    return new Artifact(def, storageResolver, new ArtifactFiles(paths), rootDir, task);
+    return new Artifact(def, storageResolver, new ArtifactFiles(paths), rootDir, task, taskAspectId);
   }
 
   private getStorageResolver(def: ArtifactDefinition) {
@@ -82,7 +83,12 @@ export class ArtifactFactory {
   /**
    * generate artifacts from a build context according to the spec defined in the artifact definitions.
    */
-  generate(context: BuildContext, defs: ArtifactDefinition[], task: BuildTask): ComponentMap<ArtifactList> {
+  generate(
+    context: BuildContext,
+    defs: ArtifactDefinition[],
+    task: Task,
+    taskAspectId: string
+  ): ComponentMap<ArtifactList> {
     const tupleArr: [string, Artifact][] = [];
 
     defs.forEach((def) => {
@@ -97,7 +103,8 @@ export class ArtifactFactory {
             this.getStorageResolver(def),
             new ArtifactFiles(this.resolvePaths(rootDir, def)),
             rootDir,
-            task
+            task,
+            taskAspectId
           );
 
           return context.components.forEach((component) => {
@@ -107,7 +114,7 @@ export class ArtifactFactory {
       }
 
       return context.components.forEach((component) => {
-        const artifact = this.createFromComponent(context, component, def, task);
+        const artifact = this.createFromComponent(context, component, def, task, taskAspectId);
         if (artifact) {
           tupleArr.push([component.id.toString(), artifact]);
         }

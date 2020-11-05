@@ -1,4 +1,4 @@
-import { BuildContext, BuiltTaskResult, BuildTask, TaskResultsList } from '@teambit/builder';
+import { BuildContext, BuiltTaskResult, Task, TaskResultsList } from '@teambit/builder';
 import { Capsule } from '@teambit/isolator';
 import fs from 'fs-extra';
 import path from 'path';
@@ -8,9 +8,9 @@ import { Compiler } from './types';
 /**
  * compiler build task. Allows to compile components during component build.
  */
-export class CompilerTask implements BuildTask {
+export class CompilerTask implements Task {
   readonly description = 'compile components';
-  constructor(readonly aspectId: string, readonly name: string, private compilerInstance: Compiler) {
+  constructor(readonly name: string, private compilerInstance: Compiler) {
     if (compilerInstance.artifactName) {
       this.description += ` for artifact ${compilerInstance.artifactName}`;
     }

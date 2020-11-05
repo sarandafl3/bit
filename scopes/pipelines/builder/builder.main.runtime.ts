@@ -18,14 +18,14 @@ import { BuilderAspect } from './builder.aspect';
 import { builderSchema } from './builder.graphql';
 import { BuilderService } from './builder.service';
 import { BuilderCmd } from './build.cmd';
-import { BuildTask } from './build-task';
+import { Task } from './build-task';
 import { StorageResolver } from './storage';
 import { TaskResults } from './build-pipe';
 import { TaskResultsList } from './task-results-list';
 import { ArtifactStorageError } from './exceptions';
 import { BuildPipelineResultList } from './build-pipeline-result-list';
 
-export type TaskSlot = SlotRegistry<BuildTask[]>;
+export type TaskSlot = SlotRegistry<Task[]>;
 
 export type StorageResolverSlot = SlotRegistry<StorageResolver>;
 
@@ -37,6 +37,7 @@ export class BuilderMain {
     private deployService: BuilderService,
     private scope: ScopeMain,
     private aspectLoader: AspectLoaderMain,
+    private envTasksSlot: TaskSlot,
     private buildTaskSlot: TaskSlot,
     private deployTaskSlot: TaskSlot,
     private storageResolversSlot: StorageResolverSlot
@@ -183,11 +184,15 @@ export class BuilderMain {
     return buildResult;
   }
 
+  registerEnvTasks(tasks: Task[]) {
+    this.envTasksSlot.register(tasks);
+  }
+
   /**
    * register a build task to apply on all component build pipelines.
    * build happens on `bit build` and as part of `bit tag --persist`.
    */
-  registerBuildTasks(tasks: BuildTask[]) {
+  registerBuildTasks(tasks: Task[]) {
     this.buildTaskSlot.register(tasks);
     return this;
   }
@@ -196,11 +201,16 @@ export class BuilderMain {
    * deploy task that doesn't get executed on `bit build`, only on `bit tag --persist'.
    * the deploy-pipeline is running once the build-pipeline has completed.
    */
-  registerDeployTasks(tasks: BuildTask[]) {
+  registerDeployTasks(tasks: Task[]) {
     this.deployTaskSlot.register(tasks);
   }
 
-  static slots = [Slot.withType<BuildTask>(), Slot.withType<StorageResolver>(), Slot.withType<BuildTask>()];
+  static slots = [
+    Slot.withType<StorageResolver>(),
+    Slot.withType<Task>(),
+    Slot.withType<Task>(),
+    Slot.withType<Task>(),
+  ];
 
   static runtime = MainRuntime;
   static dependencies = [
@@ -225,7 +235,12 @@ export class BuilderMain {
       GraphqlMain
     ],
     config,
-    [buildTaskSlot, storageResolversSlot, deployTaskSlot]: [TaskSlot, StorageResolverSlot, TaskSlot]
+    [storageResolversSlot, envTaskSlot, buildTaskSlot, deployTaskSlot]: [
+      StorageResolverSlot,
+      TaskSlot,
+      TaskSlot,
+      TaskSlot
+    ]
   ) {
     const artifactFactory = new ArtifactFactory(storageResolversSlot);
     const logger = loggerExt.createLogger(BuilderAspect.id);
@@ -246,6 +261,7 @@ export class BuilderMain {
       deployService,
       scope,
       aspectLoader,
+      envTaskSlot,
       buildTaskSlot,
       deployTaskSlot,
       storageResolversSlot

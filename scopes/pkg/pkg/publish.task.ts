@@ -1,4 +1,4 @@
-import { BuildContext, BuiltTaskResult, BuildTask, TaskLocation } from '@teambit/builder';
+import { BuildContext, BuiltTaskResult, Task, TaskLocation } from '@teambit/builder';
 import { Logger } from '@teambit/logger';
 import { Capsule } from '@teambit/isolator';
 import { Publisher } from './publisher';
@@ -7,7 +7,7 @@ import { Packer } from './packer';
 /**
  * publish components by running "npm publish"
  */
-export class PublishTask implements BuildTask {
+export class PublishTask implements Task {
   readonly name = 'PublishComponents';
   readonly location: TaskLocation = 'end';
   constructor(

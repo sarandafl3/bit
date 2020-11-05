@@ -1,4 +1,4 @@
-import { BuildTask } from '@teambit/builder';
+import { Task } from '@teambit/builder';
 import { DevServer, DevServerContext } from '@teambit/bundler';
 import type { CompilerMain } from '@teambit/compiler';
 import { Compiler } from '@teambit/compiler';
@@ -75,7 +75,7 @@ export class StencilEnv implements Environment {
   /**
    * returns the component build pipeline.
    */
-  getBuildPipe(): BuildTask[] {
+  getBuildPipe(): Task[] {
     return [this.compiler.createTask('StencilCompiler', this.getCompiler())];
   }
 }

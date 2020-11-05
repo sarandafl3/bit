@@ -1,4 +1,4 @@
-import { BuildContext, BuildTask, BuiltTaskResult, TaskResultsList } from '@teambit/builder';
+import { BuildContext, Task, BuiltTaskResult, TaskResultsList } from '@teambit/builder';
 
 export type TranspileOpts = {
   componentDir: string; // absolute path of the component's root directory
@@ -80,7 +80,7 @@ export interface Compiler extends CompilerOptions {
   /**
    * sugar to create a Compiler task via the concrete compiler
    */
-  createTask?(name?: string): BuildTask;
+  createTask?(name?: string): Task;
 
   /**
    * run before the build pipeline has started. this is useful when some preparation are needed to

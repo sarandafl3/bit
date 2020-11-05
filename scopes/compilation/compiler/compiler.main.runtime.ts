@@ -3,6 +3,7 @@ import { EnvsAspect, EnvsMain } from '@teambit/envs';
 import { LoggerAspect, LoggerMain } from '@teambit/logger';
 import { Workspace, WorkspaceAspect } from '@teambit/workspace';
 import { PubsubAspect, PubsubMain } from '@teambit/pubsub';
+import { BuilderAspect, BuilderMain } from '@teambit/builder';
 import { Component } from '@teambit/component';
 import { BitId } from 'bit-bin/dist/bit-id';
 import { CompilerService } from './compiler.service';
@@ -13,7 +14,12 @@ import { Compiler } from './types';
 import { WorkspaceCompiler } from './workspace-compiler';
 
 export class CompilerMain {
-  constructor(private pubsub: PubsubMain, private workspaceCompiler: WorkspaceCompiler, private envs: EnvsMain) {}
+  constructor(
+    private pubsub: PubsubMain,
+    private workspaceCompiler: WorkspaceCompiler,
+    private envs: EnvsMain,
+    private builder: BuilderMain
+  ) {}
 
   compileOnWorkspace(
     componentsIds: string[] | BitId[], // when empty, it compiles all
@@ -29,7 +35,9 @@ export class CompilerMain {
    * with this method you can create any number of compilers and add them to the buildPipeline.
    */
   createTask(name: string, compiler: Compiler): CompilerTask {
-    return new CompilerTask(CompilerAspect.id, name, compiler);
+    const compilerTask = new CompilerTask(name, compiler);
+    this.builder.registerEnvTasks([compilerTask]);
+    return compilerTask;
   }
 
   /**
@@ -44,9 +52,9 @@ export class CompilerMain {
 
   static runtime = MainRuntime;
 
-  static dependencies = [CLIAspect, WorkspaceAspect, EnvsAspect, LoggerAspect, PubsubAspect];
+  static dependencies = [CLIAspect, WorkspaceAspect, EnvsAspect, LoggerAspect, PubsubAspect, BuilderAspect];
 
-  static async provider([cli, workspace, envs, loggerMain, pubsub]: [
+  static async provider([cli, workspace, envs, loggerMain, pubsub, builder]: [
     CLIMain,
     Workspace,
     EnvsMain,
@@ -55,7 +63,7 @@ export class CompilerMain {
   ]) {
     const workspaceCompiler = new WorkspaceCompiler(workspace, envs, pubsub);
     envs.registerService(new CompilerService());
-    const compilerMain = new CompilerMain(pubsub, workspaceCompiler, envs);
+    const compilerMain = new CompilerMain(pubsub, workspaceCompiler, envs, builder);
     const logger = loggerMain.createLogger(CompilerAspect.id);
     cli.register(new CompileCmd(workspaceCompiler, logger, pubsub));
     return compilerMain;

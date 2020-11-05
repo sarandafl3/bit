@@ -3,7 +3,7 @@ import { merge } from 'lodash';
 import { MainRuntime } from '@teambit/cli';
 import type { CompilerMain } from '@teambit/compiler';
 import { CompilerAspect, Compiler } from '@teambit/compiler';
-import { BuildTask } from '@teambit/builder';
+import { Task } from '@teambit/builder';
 import { Component } from '@teambit/component';
 import { EnvsAspect, EnvsMain, EnvTransformer, Environment } from '@teambit/envs';
 import type { GraphqlMain } from '@teambit/graphql';
@@ -142,7 +142,7 @@ export class ReactMain {
   /**
    * override the build pipeline of the component environment.
    */
-  overrideBuildPipe(tasks: BuildTask[]) {
+  overrideBuildPipe(tasks: Task[]) {
     return this.envs.override({
       getBuildPipe: () => tasks,
     });
@@ -151,7 +151,7 @@ export class ReactMain {
   /**
    * override the build pipeline of the component environment.
    */
-  overrideCompilerTasks(tasks: BuildTask[]) {
+  overrideCompilerTasks(tasks: Task[]) {
     const pipeWithoutCompiler = this.reactEnv.getBuildPipe().filter((task) => task.aspectId !== CompilerAspect.id);
 
     return this.envs.override({

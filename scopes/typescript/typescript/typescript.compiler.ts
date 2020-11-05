@@ -109,7 +109,6 @@ export class TypescriptCompiler implements Compiler {
   getArtifactDefinition() {
     return [
       {
-        generatedBy: this.id,
         name: this.artifactName,
         globPatterns: this.distGlobPatterns,
       },

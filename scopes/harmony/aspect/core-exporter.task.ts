@@ -1,15 +1,14 @@
 import path from 'path';
 import fs from 'fs-extra';
-import { BuildContext, BuiltTaskResult, BuildTask, TaskLocation } from '@teambit/builder';
+import { BuildContext, BuiltTaskResult, Task, TaskLocation } from '@teambit/builder';
 import { AspectLoaderMain, getCoreAspectName, getCoreAspectPackageName } from '@teambit/aspect-loader';
 import { Capsule } from '@teambit/isolator';
 import { Environment } from '@teambit/envs';
 
-export class CoreExporterTask implements BuildTask {
+export class CoreExporterTask implements Task {
   constructor(private env: Environment, private aspectLoader: AspectLoaderMain) {}
 
   location: TaskLocation = 'start';
-  readonly aspectId = 'teambit.harmony/aspect';
   readonly name = 'CoreExporter';
   readonly description = 'export all core aspects via the main aspects';
 

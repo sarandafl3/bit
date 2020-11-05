@@ -17,7 +17,6 @@ export type ArtifactSource = { relativePath: string; source: Source };
 export type ArtifactObject = {
   name: string;
   description?: string;
-  generatedBy: string;
   storage: string;
   task: {
     id: string;

@@ -1,14 +1,14 @@
 import R from 'ramda';
 import { Graph } from 'cleargraph';
 import { EnvDefinition, Environment } from '@teambit/envs';
-import { BuildTask, BuildTaskHelper } from './build-task';
+import { Task, BuildTaskHelper, TaskWrapper } from './build-task';
 import type { TaskSlot } from './builder.main.runtime';
 import { TasksQueue } from './tasks-queue';
 
 type TaskDependenciesGraph = Graph<string, string>;
 type Location = 'start' | 'middle' | 'end';
 type TasksLocationGraph = { location: Location; graph: TaskDependenciesGraph };
-type PipelineEnv = { env: EnvDefinition; pipeline: BuildTask[] };
+type PipelineEnv = { env: EnvDefinition; pipeline: Task[] };
 type DataPerLocation = { location: Location; graph: TaskDependenciesGraph; pipelineEnvs: PipelineEnv[] };
 
 /**
@@ -43,6 +43,7 @@ type DataPerLocation = { location: Location; graph: TaskDependenciesGraph; pipel
  */
 export function calculatePipelineOrder(
   taskSlot: TaskSlot,
+  envTasksSlot: TaskSlot,
   envs: EnvDefinition[],
   pipeNameOnEnv = 'getBuildPipe'
 ): TasksQueue {
@@ -53,17 +54,11 @@ export function calculatePipelineOrder(
   });
   const pipelineEnvs: PipelineEnv[] = [];
   envs.forEach((envDefinition) => {
-    if (envDefinition.env.getPipe) {
-      // @todo: remove once this confusion is over
-      throw new Error(
-        `Fatal: a breaking API has introduced. Please change "getPipe()" method on "${envDefinition.id}" to "getBuildPipe()"`
-      );
-    }
     const pipeline = getPipelineForEnv(taskSlot, envDefinition.env, pipeNameOnEnv);
     pipelineEnvs.push({ env: envDefinition, pipeline });
   });
 
-  const flattenedPipeline: BuildTask[] = R.flatten(pipelineEnvs.map((pipelineEnv) => pipelineEnv.pipeline));
+  const flattenedPipeline: Task[] = R.flatten(pipelineEnvs.map((pipelineEnv) => pipelineEnv.pipeline));
   flattenedPipeline.forEach((task) => addDependenciesToGraph(graphs, flattenedPipeline, task));
 
   const dataPerLocation: DataPerLocation[] = graphs.map(({ location, graph }) => {
@@ -90,16 +85,16 @@ function addTasksToGraph(tasksQueue: TasksQueue, dataPerLocation: DataPerLocatio
       );
       if (taskIndex < 0) return;
       const task = pipeline[taskIndex];
-      tasksQueue.push({ env, task });
+      tasksQueue.push({ env, taskWrapper: task });
       pipeline.splice(taskIndex, 1); // delete the task from the pipeline
     });
   });
   data.pipelineEnvs.forEach(({ env, pipeline }) => {
-    pipeline.forEach((task) => tasksQueue.push({ env, task }));
+    pipeline.forEach((task) => tasksQueue.push({ env, taskWrapper: task }));
   });
 }
 
-function addDependenciesToGraph(graphs: TasksLocationGraph[], pipeline: BuildTask[], task: BuildTask) {
+function addDependenciesToGraph(graphs: TasksLocationGraph[], pipeline: Task[], task: Task) {
   if (!task.dependencies || !task.dependencies.length) return;
   const taskId = BuildTaskHelper.serializeId(task);
   task.dependencies.forEach((dependency) => {
@@ -138,7 +133,7 @@ function addDependenciesToGraph(graphs: TasksLocationGraph[], pipeline: BuildTas
  * it's ok to have the dependency located earlier, e.g. "start" and the task at "end", and in this
  * case, it will not be part of the graph because there is no need to do any special calculation.
  */
-function getLocation(task: BuildTask, dependencyTask: BuildTask): Location | null {
+function getLocation(task: Task, dependencyTask: Task): Location | null {
   const taskLocation = task.location || 'middle';
   const dependencyLocation = dependencyTask.location || 'middle';
 
@@ -163,11 +158,20 @@ which is invalid. the dependency must be located earlier or in the same location
   return null;
 }
 
-function getPipelineForEnv(taskSlot: TaskSlot, env: Environment, pipeNameOnEnv: string): BuildTask[] {
-  const buildTasks: BuildTask[] = env[pipeNameOnEnv] ? env[pipeNameOnEnv]() : [];
-  const slotsTasks = R.flatten(taskSlot.values());
-  const tasksAtStart: BuildTask[] = [];
-  const tasksAtEnd: BuildTask[] = [];
+function getPipelineForEnv(
+  taskSlot: TaskSlot,
+  envsTasksSlot: TaskSlot,
+  env: Environment,
+  pipeNameOnEnv: string
+): Task[] {
+  const buildTasks: Task[] = env[pipeNameOnEnv] ? env[pipeNameOnEnv]() : [];
+  const taskSlotWrappers = fromTasksSlotToTaskWrappers(taskSlot);
+  const envTaskSlotWrappers = fromTasksSlotToTaskWrappers(envsTasksSlot);
+  const buildTasksWrappers = buildTasks.map((task) => {
+    const found = envTaskSlotWrappers.find((taskWrapper) => taskWrapper.name === task.name);
+  });
+  const tasksAtStart: Task[] = [];
+  const tasksAtEnd: Task[] = [];
   slotsTasks.forEach((task) => {
     if (task.location === 'start') {
       tasksAtStart.push(task);
@@ -184,4 +188,13 @@ function getPipelineForEnv(taskSlot: TaskSlot, env: Environment, pipeNameOnEnv: 
   const mergedTasks = [...tasksAtStart, ...buildTasks, ...tasksAtEnd];
 
   return mergedTasks;
+}
+
+function fromTasksSlotToTaskWrappers(taskSlot: TaskSlot): TaskWrapper[] {
+  const taskWrappers: TaskWrapper[] = [];
+  const slotsTasks = taskSlot.toArray();
+  slotsTasks.forEach(([id, tasks]: [string, Task[]]) => {
+    tasks.forEach((task) => taskWrappers.push(new TaskWrapper(task, id)));
+  });
+  return taskWrappers;
 }
