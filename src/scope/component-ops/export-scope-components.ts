@@ -20,6 +20,9 @@ import Scope from '../scope';
 import { getScopeRemotes } from '../scope-remotes';
 import ScopeComponentsImporter from './scope-components-importer';
 import { ObjectItem, ObjectList } from '../objects/object-list';
+import { generateRandomStr } from '../../utils';
+import { PUSH_OPTIONS } from '../../api/scope/lib/put';
+import { ScopeLock } from '../scope-lock';
 
 type ModelComponentAndObjects = { component: ModelComponent; objects: BitObject[] };
 
@@ -29,14 +32,27 @@ type ModelComponentAndObjects = { component: ModelComponent; objects: BitObject[
  * dependencies, saves them as well. Finally runs the build process if needed on an isolated
  * environment.
  */
-export async function exportManyBareScope(scope: Scope, objectList: ObjectList): Promise<BitIds> {
+export async function exportManyBareScope(
+  scope: Scope,
+  objectList: ObjectList,
+  pushOptions: PUSH_OPTIONS
+): Promise<BitIds> {
+  const scopeLock = new ScopeLock(scope);
+  if (pushOptions.dryRun) {
+    await scopeLock.createLock();
+  }
   logger.debugAndAddBreadCrumb('exportManyBareScope', `started with ${objectList.objects.length} objects`);
   const mergedIds: BitIds = await mergeObjects(scope, objectList);
+  if (pushOptions.dryRun) {
+    logger.debugAndAddBreadCrumb('exportManyBareScope', 'export dry-run has been completed successfully');
+    return new BitIds();
+  }
   logger.debugAndAddBreadCrumb('exportManyBareScope', 'will try to importMany in case there are missing dependencies');
   const scopeComponentsImporter = ScopeComponentsImporter.getInstance(scope);
   await scopeComponentsImporter.importMany(mergedIds, true, false); // resolve dependencies
   logger.debugAndAddBreadCrumb('exportManyBareScope', 'successfully ran importMany');
   await scope.objects.persist();
+  scopeLock.releaseLock();
   logger.debugAndAddBreadCrumb('exportManyBareScope', 'objects were written successfully to the filesystem');
   return mergedIds;
 }
@@ -88,6 +104,7 @@ export async function exportMany({
       addDependenciesToObjectList(objectsPerRemote, componentAndObjects)
     );
   });
+  await pushToRemotesDryRun();
   await pushToRemotes();
   const results = await updateLocalObjects(lanesObjects);
   return {
@@ -156,7 +173,11 @@ export async function exportMany({
       }
 
       const componentBuffer = await componentAndObject.component.compress();
-      const componentData = { ref: componentAndObject.component.hash(), buffer: componentBuffer };
+      const componentData = {
+        ref: componentAndObject.component.hash(),
+        buffer: componentBuffer,
+        type: ModelComponent.name,
+      };
       const getObjectsData = async (): Promise<ObjectItem[]> => {
         // @todo currently, for lanes (componentAndObject.component.head) this optimization is skipped.
         // it should be enabled with a different mechanism
@@ -223,13 +244,43 @@ export async function exportMany({
     });
   }
 
+  async function pushToRemotesDryRun(): Promise<void> {
+    const lockedRemotes: Remote[] = [];
+    await mapSeries(manyObjectsPerRemote, async (objectsPerRemote: ObjectsPerRemote) => {
+      const { remote, objectList } = objectsPerRemote;
+      const componentsOnly = objectList.objects.filter((obj) => obj.type === ModelComponent.name);
+      const componentObjectList = new ObjectList(componentsOnly);
+      let exportedIds: string[];
+      try {
+        exportedIds = await remote.pushMany(componentObjectList, { dryRun: true }, context);
+        logger.debugAndAddBreadCrumb(
+          'pushToRemotesDryRun',
+          'successfully pushed all ids to the bare-scope for the dry-run'
+        );
+        lockedRemotes.push(remote);
+        objectsPerRemote.exportedIds = exportedIds;
+      } catch (err) {
+        logger.warnAndAddBreadCrumb('pushToRemotesDryRun', 'failed pushing ids to the bare-scope');
+        lockedRemotes.push(remote);
+        await releaseRemotesLock(lockedRemotes);
+        throw err;
+      }
+    });
+  }
+
+  async function releaseRemotesLock(lockedRemotes: Remote[]) {
+    logger.warnAndAddBreadCrumb('releaseRemotesLock', `releasing lock from ${lockedRemotes.length} remotes`);
+    await Promise.all(lockedRemotes.map((remote) => remote.lock({ release: true })));
+    logger.warnAndAddBreadCrumb('releaseRemotesLock', `all locks are now released`);
+  }
+
   async function pushToRemotes(): Promise<void> {
     await mapSeries(manyObjectsPerRemote, async (objectsPerRemote: ObjectsPerRemote) => {
       const { remote, objectList } = objectsPerRemote;
       let exportedIds: string[];
       const succeededRemotes: Remote[] = [];
       try {
-        exportedIds = await remote.pushMany(objectList, context);
+        exportedIds = await remote.pushMany(objectList, { dryRun: false }, context);
         logger.debugAndAddBreadCrumb(
           'exportMany',
           'successfully pushed all ids to the bare-scope, going to save them back to local scope'
@@ -238,7 +289,6 @@ export async function exportMany({
         objectsPerRemote.exportedIds = exportedIds;
       } catch (err) {
         logger.warnAndAddBreadCrumb('exportMany', 'failed pushing ids to the bare-scope');
-        // TODO: roll back all succeededRemotes.
         throw err;
       }
     });

@@ -1,4 +1,6 @@
 import { FETCH_OPTIONS } from '../api/scope/lib/fetch';
+import { LockOptions, LockStatus } from '../api/scope/lib/lock';
+import { PUSH_OPTIONS } from '../api/scope/lib/put';
 import { BitId } from '../bit-id';
 import { ListScopeResult } from '../consumer/component/components-list';
 import Component from '../consumer/component/consumer-component';
@@ -97,12 +99,20 @@ export default class Remote {
     return connect(this.host).then((network) => network.push(componentObjects));
   }
 
-  async pushMany(objectList: ObjectList, context?: Record<string, any>): Promise<string[]> {
+  async pushMany(
+    objectList: ObjectList,
+    pushOptions: PUSH_OPTIONS = {},
+    context?: Record<string, any>
+  ): Promise<string[]> {
     const network = await connect(this.host);
-    logger.debug(`[-] Running pushMany on a remote`);
-    const results = await network.pushMany(objectList, context);
+    logger.debug(`[-] Running pushMany on a remote, options: ${JSON.stringify(pushOptions)}`);
+    const results = await network.pushMany(objectList, pushOptions, context);
     logger.debug('[-] Returning from a remote');
     return results;
+  }
+  async lock(lockOptions: LockOptions = {}): Promise<LockStatus> {
+    const network = await connect(this.host);
+    return network.lock(lockOptions);
   }
   deleteMany(
     ids: string[],

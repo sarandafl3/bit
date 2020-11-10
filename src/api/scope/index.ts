@@ -19,6 +19,7 @@ import initScope from './lib/scope-init';
 import scopeList from './lib/scope-list';
 import scopeShow from './lib/scope-show';
 import testInScope from './lib/test-in-scope';
+import { lock } from './lib/lock';
 
 export {
   catObject,
@@ -42,4 +43,5 @@ export {
   deprecate,
   undeprecate,
   latestVersions,
+  lock,
 };

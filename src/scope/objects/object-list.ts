@@ -6,7 +6,11 @@ import Ref from './ref';
 export type ObjectItem = {
   ref: Ref;
   buffer: Buffer; // zlib deflated BitObject
-  type?: string; // for future use. e.g. to be able to export only Component/Version types but not Source/Artifact, etc.
+  /**
+   * BitObject type. can be one of the object-registrar.typesNames().
+   * helpful to be able to export only specific types, such as only Component/Lane.
+   */
+  type?: string;
 };
 
 export const FETCH_FORMAT_OBJECT_LIST = 'ObjectList';

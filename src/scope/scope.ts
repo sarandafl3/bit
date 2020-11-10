@@ -163,6 +163,10 @@ export default class Scope {
     return pathLib.join(this.path, Scope.getComponentsRelativePath());
   }
 
+  clearCache() {
+    this.objects.clearCache();
+  }
+
   /**
    * Get the relative components path inside the scope
    * (components such as compilers / testers / extensions)

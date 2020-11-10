@@ -15,6 +15,7 @@ import logger from '../../../logger/logger';
 import { ObjectList } from '../../objects/object-list';
 import { FETCH_OPTIONS } from '../../../api/scope/lib/fetch';
 import { remoteErrorHandler } from '../remote-error-handler';
+import { PUSH_OPTIONS } from '../../../api/scope/lib/put';
 
 export class Http implements Network {
   constructor(private graphClient: GraphQLClient, private _token: string | undefined | null, private url: string) {}
@@ -66,7 +67,7 @@ export class Http implements Network {
     return res.removeComponents;
   }
 
-  async pushMany(objectList: ObjectList): Promise<string[]> {
+  async pushMany(objectList: ObjectList, pushOptions: PUSH_OPTIONS): Promise<string[]> {
     const route = 'api/scope/put';
     logger.debug(`Http.pushMany, url: ${this.url}/${route}  total objects ${objectList.count()}`);
 
@@ -75,7 +76,7 @@ export class Http implements Network {
     const res = await fetch(`${this.url}/${route}`, {
       method: 'POST',
       body: pack,
-      headers: this.getHeaders(),
+      headers: this.getHeaders(pushOptions),
     });
     await this.throwForNonOkStatus(res);
     const ids = await res.json();
