@@ -40,7 +40,11 @@ export type IsolateComponentsInstallOptions = {
 
 export type IsolateComponentsOptions = {
   name?: string;
+  /**
+   * the capsule root-dir based on a *hash* of this baseDir, not on the baseDir itself.
+   */
   baseDir?: string;
+
   /**
    * create a new capsule with a random string attached to the path suffix
    */
@@ -50,11 +54,14 @@ export type IsolateComponentsOptions = {
    * installation options
    */
   installOptions?: IsolateComponentsInstallOptions;
+
   linkingOptions?: LinkingOptions;
+
   /**
-   * remove the capsule content first (if exist)
+   * delete the capsule rootDir first. it makes sure that the isolation process starts fresh with
+   * no previous capsules. for build and tag this is true.
    */
-  emptyExisting?: boolean;
+  emptyRootDir?: boolean;
 
   /**
    * skip the reproduction of the capsule in case it exists.
@@ -98,8 +105,10 @@ export class IsolatorMain {
     legacyScope?: Scope
   ): Promise<CapsuleList> {
     const config = { installPackages: true, ...opts };
-    const capsulesDir = this.getCapsulesRootDir(opts.baseDir as string); // TODO: move this logic elsewhere
-
+    const capsulesDir = this.getCapsulesRootDir(opts.baseDir as string);
+    if (opts.emptyRootDir) {
+      await fs.emptyDir(capsulesDir);
+    }
     const capsules = await createCapsulesFromComponents(components, capsulesDir, config);
     const capsuleList = CapsuleList.fromArray(capsules);
     if (opts.getExistingAsIs) {
@@ -112,10 +121,6 @@ export class IsolatorMain {
       );
 
       if (existingCapsules.length === capsuleList.length) return existingCapsules;
-    }
-
-    if (opts.emptyExisting) {
-      await Promise.all(capsuleList.getAllCapsuleDirs().map((dir) => fs.emptyDir(dir)));
     }
     const capsulesWithPackagesData = await getCapsulesPreviousPackageJson(capsules);
 
@@ -140,18 +145,14 @@ export class IsolatorMain {
       // When using isolator we don't want to use the policy defined in the workspace directly,
       // we only want to instal deps from components and the peer from the workspace
 
-      const workspacePolicy = this.dependencyResolver.getWorkspacePolicy() || {};
-      const rootDepsObject = {
-        peerDependencies: {
-          ...workspacePolicy.peerDependencies,
-        },
-      };
+      const workspacePolicy = this.dependencyResolver.getWorkspacePolicy();
+      const peerOnlyPolicy = workspacePolicy.byLifecycleType('peer');
       const packageManagerInstallOptions = {
         dedupe: installOptions.dedupe,
         copyPeerToRuntimeOnComponents: installOptions.copyPeerToRuntimeOnComponents,
         copyPeerToRuntimeOnRoot: installOptions.copyPeerToRuntimeOnRoot,
       };
-      await installer.install(capsulesDir, rootDepsObject, this.toComponentMap(capsules), packageManagerInstallOptions);
+      await installer.install(capsulesDir, peerOnlyPolicy, this.toComponentMap(capsules), packageManagerInstallOptions);
       await symlinkOnCapsuleRoot(capsuleList, this.logger, capsulesDir);
       await symlinkDependenciesToCapsules(capsulesToInstall, capsuleList, this.logger);
       // TODO: this is a hack to have access to the bit bin project in order to access core extensions from user extension

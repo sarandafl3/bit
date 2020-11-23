@@ -128,10 +128,13 @@ export default async function provideWorkspace(
       const installOpts: WorkspaceInstallOptions = {
         dedupe: true,
         updateExisting: false,
+        import: false,
       };
       return workspace.install(undefined, installOpts);
     },
   });
+
+  consumer.onCacheClear.push(() => workspace.clearCache());
 
   if (!workspace.isLegacy) {
     LegacyComponentLoader.registerOnComponentLoadSubscriber(async (legacyComponent: ConsumerComponent) => {
