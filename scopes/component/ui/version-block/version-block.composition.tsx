@@ -1,4 +1,6 @@
 import React from 'react';
+import { Router } from 'react-router-dom';
+import { createBrowserHistory } from 'history';
 import { Snap } from '@teambit/component';
 import { VersionBlock } from './version-block';
 
@@ -13,20 +15,23 @@ const author = {
 };
 const message = 'simple message';
 const isLatest = true;
-
-const parents = [new Snap(hash, new Date(), parents, author, message)];
+// @ts-ignore
+const parents = [new Snap(hash, new Date(), null, author, message)];
 
 export const VersionBlockSimple = () => {
+  const history = createBrowserHistory();
   return (
-    <VersionBlock
-      componentId={componentId}
-      version={version}
-      hash={hash}
-      timestamp={timestamp}
-      parents={parents}
-      author={author}
-      message={message}
-      isLatest={isLatest}
-    />
+    <Router history={history}>
+      <VersionBlock
+        componentId={componentId}
+        version={version}
+        hash={hash}
+        timestamp={timestamp}
+        parents={parents}
+        author={author}
+        message={message}
+        isLatest={isLatest}
+      />
+    </Router>
   );
 };
