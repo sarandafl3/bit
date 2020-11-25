@@ -1259,6 +1259,11 @@
                 "test": false
             },
             {
+                "name": "version-block.composition.tsx",
+                "relativePath": "version-block.composition.tsx",
+                "test": false
+            },
+            {
                 "name": "version-block.module.scss",
                 "relativePath": "version-block.module.scss",
                 "test": false
