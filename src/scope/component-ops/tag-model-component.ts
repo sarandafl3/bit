@@ -1,4 +1,4 @@
-import bluebird from 'bluebird';
+import mapSeries from 'p-map-series';
 import R from 'ramda';
 import * as RA from 'ramda-adjunct';
 import { ReleaseType } from 'semver';
@@ -197,11 +197,15 @@ export default async function tagModelComponent({
     consumerComponentsIdsMap[componentIdString] = consumerComponent;
   });
   const componentsToTag: Component[] = R.values(consumerComponentsIdsMap); // consumerComponents unique
-  const idsToTriggerAutoTag = componentsToTag.map((c) => c.id).filter((id) => id.hasVersion());
+  const idsToTag = BitIds.fromArray(componentsToTag.map((c) => c.id));
+  // ids without versions are new. it's impossible that tagged (and not-modified) components has
+  // them as dependencies.
+  const idsToTriggerAutoTag = idsToTag.filter((id) => id.hasVersion());
 
   const autoTagData = skipAutoTag ? [] : await getAutoTagInfo(consumer, BitIds.fromArray(idsToTriggerAutoTag));
-  const autoTagConsumerComponents = autoTagData.map((autoTagItem) => autoTagItem.component);
-  const allComponentsToTag = componentsToTag.concat(autoTagConsumerComponents);
+  const autoTagComponents = autoTagData.map((autoTagItem) => autoTagItem.component);
+  const autoTagComponentsFiltered = autoTagComponents.filter((c) => !idsToTag.has(c.id));
+  const allComponentsToTag = [...componentsToTag, ...autoTagComponentsFiltered];
 
   // check for each one of the components whether it is using an old version
   if (!ignoreNewestVersion && !isSnap) {
@@ -267,7 +271,7 @@ export default async function tagModelComponent({
   // go through all dependencies and update their versions
   updateDependenciesVersions(allComponentsToTag);
 
-  await addLogToComponents(componentsToTag, autoTagConsumerComponents, persist, message);
+  await addLogToComponents(componentsToTag, autoTagComponents, persist, message);
 
   if (persist) {
     if (!skipTests) addSpecsResultsToComponents(allComponentsToTag, testsResults);
@@ -283,16 +287,14 @@ export default async function tagModelComponent({
   if (!consumer.isLegacy && persist) {
     const ids = allComponentsToTag.map((consumerComponent) => consumerComponent.id);
 
-    const results: Array<OnTagResult[]> = await bluebird.mapSeries(scope.onTag, (func) =>
-      func(ids, { disableDeployPipeline })
-    );
+    const results: Array<OnTagResult[]> = await mapSeries(scope.onTag, (func) => func(ids, { disableDeployPipeline }));
     results.forEach((tagResult) => updateComponentsByTagResult(allComponentsToTag, tagResult));
     allComponentsToTag.forEach((comp) => {
       const pkgExt = comp.extensions.findCoreExtension('teambit.pkg/pkg');
       const publishedPackage = pkgExt?.data?.publishedPackage;
       if (publishedPackage) publishedPackages.push(publishedPackage);
     });
-    await bluebird.mapSeries(allComponentsToTag, (consumerComponent) => scope.sources.enrichSource(consumerComponent));
+    await mapSeries(allComponentsToTag, (consumerComponent) => scope.sources.enrichSource(consumerComponent));
   }
 
   if (persist) {
@@ -304,7 +306,7 @@ export default async function tagModelComponent({
 
 async function addComponentsToScope(consumer: Consumer, components: Component[], resolveUnmerged: boolean) {
   const lane = await consumer.getCurrentLaneObject();
-  await bluebird.mapSeries(components, async (component) => {
+  await mapSeries(components, async (component) => {
     await consumer.scope.sources.addSource({
       source: component,
       consumer,

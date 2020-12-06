@@ -52,6 +52,7 @@ import findCacheDir from 'find-cache-dir';
 import fs from 'fs-extra';
 import { slice } from 'lodash';
 import path, { join } from 'path';
+import { LinkingOptions, LinkResults } from '@teambit/dependency-resolver/dependency-linker';
 import { difference } from 'ramda';
 import ConsumerComponent from 'bit-bin/dist/consumer/component';
 import { ComponentConfigFile } from './component-config-file';
@@ -76,6 +77,7 @@ import {
 } from './workspace.provider';
 import { Issues } from './workspace-component/issues';
 import { WorkspaceComponentLoader } from './workspace-component/workspace-component-loader';
+import { IncorrectEnvAspect } from './exceptions/incorrect-env-aspect';
 
 export type EjectConfResult = {
   configPath: string;
@@ -98,6 +100,8 @@ export type WorkspaceInstallOptions = {
   copyPeerToRuntimeOnComponents?: boolean;
   updateExisting: boolean;
 };
+
+export type WorkspaceLinkOptions = LinkingOptions;
 
 const DEFAULT_VENDOR_DIR = 'vendor';
 
@@ -360,8 +364,15 @@ export class Workspace implements ComponentFactory {
    * get a component from workspace
    * @param id component ID
    */
-  async get(componentId: ComponentID, forCapsule = false, legacyComponent?: ConsumerComponent): Promise<Component> {
-    return this.componentLoader.get(componentId, forCapsule, legacyComponent);
+  async get(
+    componentId: ComponentID,
+    forCapsule = false,
+    legacyComponent?: ConsumerComponent,
+    useCache = true,
+    storeInCache = true
+  ): Promise<Component> {
+    this.logger.debug(`get ${componentId.toString()}`);
+    return this.componentLoader.get(componentId, forCapsule, legacyComponent, useCache, storeInCache);
   }
 
   // TODO: @gilad we should refactor this asap into to the envs aspect.
@@ -799,19 +810,16 @@ export class Workspace implements ComponentFactory {
       }
 
       if (!data) return false;
-      if (data.type !== 'aspect')
-        this.logger.debug(
-          `${component.id.toString()} is configured in workspace.json, but using the ${
-            data.type
-          } environment. \n please make sure to either apply the aspect environment or a composition of the aspect environment for the aspect to load.`
-        );
+      if (data.type !== 'aspect' && idsWithoutCore.includes(component.id.toString())) {
+        throw new IncorrectEnvAspect(component.id.toString(), data.type);
+      }
       return data.type === 'aspect';
     });
 
     // no need to filter core aspects as they are not included in the graph
     // here we are trying to load extensions from the workspace.
+    const requireableExtensions: any = await this.requireComponents(aspects);
     try {
-      const requireableExtensions: any = await this.requireComponents(aspects);
       await this.aspectLoader.loadRequireableExtensions(requireableExtensions, throwOnError);
     } catch (err) {
       // if extensions does not exist on workspace, try and load them from the local scope.
@@ -1003,34 +1011,45 @@ export class Workspace implements ComponentFactory {
     );
     this.logger.debug(`installing dependencies in workspace with options`, options);
     this.clearCache();
-    const components = await this.list();
-    const legacyStringIds = components.map((component) => component.id._legacy.toString());
     // TODO: pass get install options
-    const installer = this.dependencyResolver.getInstaller({
-      linkingOptions: { bitLinkType: 'link', linkCoreAspects: true },
-    });
-    const installationMap = await this.getComponentsDirectory([]);
-    const packageJson = this.consumer.packageJson?.packageJsonObject || {};
-    const workspacePolicy = this.dependencyResolver.getWorkspacePolicy();
-    const policyFromPackageJson = this.dependencyResolver.getWorkspacePolicyFromPackageJson(packageJson);
-    const mergedRootPolicy = this.dependencyResolver.mergeWorkspacePolices([policyFromPackageJson, workspacePolicy]);
+    const installer = this.dependencyResolver.getInstaller({});
+    const compDirMap = await this.getComponentsDirectory([]);
+    const mergedRootPolicy = this.getMergedRootPolicy();
 
     const depsFilterFn = await this.generateFilterFnForDepsFromLocalRemote();
 
-    const installOptions: PackageManagerInstallOptions = {
+    const pmInstallOptions: PackageManagerInstallOptions = {
       dedupe: options?.dedupe,
       copyPeerToRuntimeOnRoot: options?.copyPeerToRuntimeOnRoot ?? true,
       copyPeerToRuntimeOnComponents: options?.copyPeerToRuntimeOnComponents ?? false,
       dependencyFilterFn: depsFilterFn,
     };
-    await installer.install(this.path, mergedRootPolicy, installationMap, installOptions);
+    await installer.install(this.path, mergedRootPolicy, compDirMap, { installTeambitBit: false }, pmInstallOptions);
     // TODO: this make duplicate
     // this.logger.consoleSuccess();
     // TODO: add the links results to the output
-    this.logger.setStatusLine('linking components');
-    await link(legacyStringIds, false);
-    this.logger.consoleSuccess();
-    return installationMap;
+    await this.link({ linkTeambitBit: true, legacyLink: true, linkCoreAspects: true });
+    await this.consumer.componentFsCache.deleteAllDependenciesDataCache();
+    return compDirMap;
+  }
+
+  async link(options?: WorkspaceLinkOptions): Promise<LinkResults> {
+    const compDirMap = await this.getComponentsDirectory([]);
+    const mergedRootPolicy = this.getMergedRootPolicy();
+    const linker = this.dependencyResolver.getLinker({
+      rootDir: this.path,
+      linkingOptions: options,
+    });
+    const res = await linker.link(this.path, mergedRootPolicy, compDirMap, options);
+    return res;
+  }
+
+  private getMergedRootPolicy() {
+    const packageJson = this.consumer.packageJson?.packageJsonObject || {};
+    const workspacePolicy = this.dependencyResolver.getWorkspacePolicy();
+    const policyFromPackageJson = this.dependencyResolver.getWorkspacePolicyFromPackageJson(packageJson);
+    const mergedRootPolicy = this.dependencyResolver.mergeWorkspacePolices([policyFromPackageJson, workspacePolicy]);
+    return mergedRootPolicy;
   }
 
   /**
