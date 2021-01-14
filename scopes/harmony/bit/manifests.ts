@@ -40,6 +40,7 @@ import { TypescriptAspect } from '@teambit/typescript';
 import { BabelAspect } from '@teambit/babel';
 import { UIAspect } from '@teambit/ui';
 import { VariantsAspect } from '@teambit/variants';
+import { RoutingAspect } from '@teambit/routing';
 import { WebpackAspect } from '@teambit/webpack';
 import { WorkspaceAspect } from '@teambit/workspace';
 import { LinterAspect } from '@teambit/linter';
@@ -94,6 +95,7 @@ export const manifestsMap = {
   [TesterAspect.id]: TesterAspect,
   [BuilderAspect.id]: BuilderAspect,
   [VariantsAspect.id]: VariantsAspect,
+  [RoutingAspect.id]: RoutingAspect,
   [DeprecationAspect.id]: DeprecationAspect,
   [ExpressAspect.id]: ExpressAspect,
   [AspectAspect.id]: AspectAspect,
