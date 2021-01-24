@@ -1,1 +1,1 @@
-export { ComponentPreview } from './component-preview';
+export { ComponentPreview, PooledComponentPreview } from './component-preview';

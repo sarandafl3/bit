@@ -52,7 +52,7 @@ export class ComponentModel {
     /**
      * the component server.
      */
-    readonly server: ComponentServer,
+    readonly server: ComponentServer | undefined,
 
     /**
      * array of compositions

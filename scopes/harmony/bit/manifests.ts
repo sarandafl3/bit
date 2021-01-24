@@ -11,6 +11,7 @@ import { ConfigAspect } from '@teambit/config';
 import { DependencyResolverAspect } from '@teambit/dependency-resolver';
 import { DeprecationAspect } from '@teambit/deprecation';
 import { DocsAspect } from '@teambit/docs';
+import { DomPoolAspect } from '@teambit/dom-pool';
 import { EnvsAspect } from '@teambit/envs';
 import { ExpressAspect } from '@teambit/express';
 import { FlowsAspect } from '@teambit/flows';
@@ -70,6 +71,7 @@ export const manifestsMap = {
   [MDXAspect.id]: MDXAspect,
   [PreviewAspect.id]: PreviewAspect,
   [DocsAspect.id]: DocsAspect,
+  [DomPoolAspect.id]: DomPoolAspect,
   [YarnAspect.id]: YarnAspect,
   [CompositionsAspect.id]: CompositionsAspect,
   [GraphqlAspect.id]: GraphqlAspect,
